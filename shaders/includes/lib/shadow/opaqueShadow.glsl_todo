@@ -1,0 +1,13 @@
+#ifdef SHADOWS_ENABLED
+
+float sampleShadowMapNearest(vec2 coord) {
+    return texture(opaqueShadowMap, coord).r;
+}
+float sampleShadowMap(vec3 coord) {
+    float t = texture(opaqueShadowMapFiltered, coord).r;
+    return t*t; // t*t looks better than t
+}
+
+#include "/includes/lib/shadow/_shadow.glsl"
+#endif
+// need one line to include

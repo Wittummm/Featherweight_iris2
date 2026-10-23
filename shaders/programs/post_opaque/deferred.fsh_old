@@ -1,0 +1,19 @@
+#include "/includes/shared/version.glsl"
+
+#include "/includes/func/readGBuffer.glsl"
+
+/* RENDERTARGETS: 0 */
+layout(location = 0) out vec3 Color;
+
+void main() {
+	ivec2 pixelCoord = ivec2(gl_FragCoord.xy);
+
+	#if PBR != 0
+        vec4 gbuffer0, gbuffer1;	
+	    readGBuffer(texelFetch(colortex2, pixelCoord, 0), gbuffer0, gbuffer1); 
+    #endif
+    vec2 lightLevel = texelFetch(colortex1, pixelCoord, 0).rg;
+    vec3 color = texelFetch(colortex0, pixelCoord, 0);
+    
+    Color = gbuffer0.rgb;
+}
