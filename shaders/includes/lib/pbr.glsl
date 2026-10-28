@@ -1,18 +1,19 @@
 #ifndef pbr_glsl
 #define pbr_glsl
+#include "/includes/func/readWriteNormals.glsl"
 
 ///////////////////////////////////////
 
 // Roughness
-float roughnessRead(float smoothness) {
+float readRoughness(float smoothness) {
     return pow(1.0 - smoothness, 2.0);
 }
-float roughnessWrite(float roughness) {
+float writeRoughness(float roughness) {
     return 1.0 - sqrt(roughness);
 }
 
 /// Emission
-float emissionRead(float emission) {
+float readEmission(float emission) {
     return fract(emission);
 }
 
@@ -22,7 +23,7 @@ bool isPorosity(float porosity) {
 }
 
 // Porosity/SSS
-float porosityRead(float porosity, out bool _isPorosity) {
+float readPorosity(float porosity, out bool _isPorosity) {
     _isPorosity = isPorosity(porosity);
 
     return _isPorosity ? porosity*3.984375 : (porosity-porosityPart)*1.3350785340314135;
@@ -33,7 +34,7 @@ float getMetallic(float reflectance) {
 }
 
 // Reflectance
-vec3 reflectanceRead(float reflectance, vec3 albedo, int medium) {
+vec3 readReflectance(float reflectance, vec3 albedo, int medium) {
     if (reflectance < 0.9) { // is non metal
         return vec3(reflectance * 1.10869565218);
     } else {
@@ -94,10 +95,10 @@ vec3 reflectanceRead(float reflectance, vec3 albedo, int medium) {
         }
     }
 }
-vec3 reflectanceRead(float reflectance, vec3 albedo) {
-    return reflectanceRead(reflectance, albedo, 0);
+vec3 readReflectance(float reflectance, vec3 albedo) {
+    return readReflectance(reflectance, albedo, 0);
 }
-float reflectanceWriteFromF0(float f0) {
+float writeReflectanceFromF0(float f0) {
     return f0*0.8980392156862745;
 }
 

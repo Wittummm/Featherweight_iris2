@@ -1,11 +1,12 @@
 #ifndef writeGBuffer_glsl
+#define writeGBuffer_glsl
 
 #include "/includes/settings/pbr.glsl"
 
 uvec4 writeGBuffer(vec4 gbuffer0, vec4 gbuffer1) {
-		#if PBR == 1
+	if (PBRFull) {
         return uvec4(packUnorm4x8(gbuffer0), packUnorm4x8(gbuffer1), 0, 0);
-    #elif PBR == 2
+    } else if (PBRReduced) {
         uint smoothness = uint(min(sqrt(gbuffer0.r), 1)*63);
 
         float r = gbuffer0.g;
@@ -28,8 +29,7 @@ uvec4 writeGBuffer(vec4 gbuffer0, vec4 gbuffer1) {
         data = bitfieldInsert(data, normals.y, 27, 5);
 
         return uvec4(data, 0, 0, 0);
-    #endif
+    }
 }
 
-#define writeGBuffer_glsl
 #endif

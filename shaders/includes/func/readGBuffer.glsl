@@ -1,12 +1,12 @@
 #ifndef readGBuffer_glsl
-
+#define readGBuffer_glsl
 #include "/includes/settings/pbr.glsl"
 
 void readGBuffer(uvec4 gbuffers, out vec4 gbuffer0, out vec4 gbuffer1) {
-    #if PBR == 1
-				gbuffer0 = unpackUnorm4x8(gbuffers.x);
+    if (PBRFull) {
+		gbuffer0 = unpackUnorm4x8(gbuffers.x);
         gbuffer1 = unpackUnorm4x8(gbuffers.y);
-    #elif PBR == 2
+    } else if (PBRReduced) {
         uint data = gbuffers.x;
         gbuffer0.r = pow(bitfieldExtract(data, 0, 6)/63.0, 2);
         gbuffer0.g = bitfieldExtract(data, 6, 6)/63.0;
@@ -19,8 +19,11 @@ void readGBuffer(uvec4 gbuffers, out vec4 gbuffer0, out vec4 gbuffer1) {
         gbuffer0.a = bitfieldExtract(data, 17, 5)/31.0;
         gbuffer1.r = bitfieldExtract(data, 22, 5)/31.0;
         gbuffer1.g = bitfieldExtract(data, 27, 5)/31.0;
-    #endif
+    }
 }
 
-#define readGBuffer_glsl
+void readGBuffer(vec4 gbuffers, out vec4 gbuffer0, out vec4 gbuffer1) {
+    readGBuffer(uvec4(gbuffers), gbuffer0, gbuffer1);
+}
+
 #endif

@@ -21,14 +21,14 @@ out mediump vec2 texCoord;
 void main() {
   #include "/includes/shared/core_to_compat.vsh"
 
-	vec3 viewPos = (modelViewMatrix * vec4(vaPosition + chunkOffset, 1)).xyz;
-	lowp vec4 clipPos = projectionMatrix * vec4(viewPos, 1);
+	vec3 posView = mul(vec4(vaPosition + chunkOffset, 1), modelViewMatrix).xyz;
+	vec4 posClip = mul(vec4(posView, 1), projectionMatrix);
 	//////////
-	lightLevel = (textureMatrix2 * vec4(vaUV2, 0.0, 1.0)).xy;
+	lightLevel = mul(vec4(vaUV2, 0.0, 1.0), textureMatrix2).xy;
 
 	texCoord = vaUV0;
-	vertPosition = viewPos.xyz;
-	gl_Position = clipPos;
+	vertPosition = posView.xyz;
+	gl_Position = posClip;
 	vertNormal = vaNormal;
 	#ifdef PBR_ENABLED
 		tangent = at_tangent;
