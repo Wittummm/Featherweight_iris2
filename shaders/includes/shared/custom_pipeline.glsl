@@ -10,6 +10,8 @@
 uniform sampler2D colortex0;
 uniform sampler2D colortex1;
 uniform usampler2D colortex2;
+
+uniform sampler2D shadowcolor0;
 ////
 uniform vec2 screenSize;
 uniform vec2 oneOverScreenSize;
@@ -26,21 +28,11 @@ uniform vec2 shadowMapSize;
 
 // Custom behavior
 #ifdef CUTOUT
-    #define discardCutout(color) if (color.a < alphaTestRef) { discard; return; }
+    #define discardCutout(color) if (color.a < alphaTestRef) { discard; }
 #else
     #define discardCutout(color)
 #endif
 
-vec3 sampleLightmap(vec2 coord) {
-    return texture(lightMapTex, coord).rgb;
-}
-
-vec3 sampleSkyLight(float level) {
-    return sampleLightmap(vec2(0, level));
-}
-vec3 sampleLocalLight(float level) {
-    return sampleLightmap(vec2(level, 0));
-}
 // Slang Compat(convert slang syntax to glsl)
 mat4 mul(mat4 a, mat4 b) {
     return a * b;
@@ -69,13 +61,22 @@ mat3 mul(mat3 a, mat3 b) {
 // Variables
 #define renderDistance far
 #define nearPlane near
+#define farPlane far*4.0
 
 #define sceneTex colortex0
 #define sceneImg colorimg0
-#define lightLevelTex colortex1
-#define lightLevelImg colorimg1
+#define lightTex colortex1
+#define lightImg colorimg1
 #define gbufferTex colortex2
 #define gbufferImg colorimg2
+
+#define shadowMap shadowtex0
+#define shadowMapFiltered shadowtex0HW
+#define opaqueShadowMap shadowtex1
+#define opaqueShadowMapFiltered shadowtex1HW
+#define shadowMapSize vec2(shadowMapResolution, shadowMapResolution)
+#define shadowColorTex shadowcolor0
+#define shadowColorImg shadowcolorimg0
 
 #define depthTex depthtex0
 #define opaqueDepthTex depthtex1
@@ -85,12 +86,93 @@ mat3 mul(mat3 a, mat3 b) {
 #define normalsAtlas normals
 #define specularAtlas specular
 
-#define shadowMap shadowtex0
-#define shadowMapFiltered shadowtex0HW
-#define opaqueShadowMap shadowtex1
-#define opaqueShadowMapFiltered shadowtex1HW
-#define shadowMapSize vec2(shadowMapResolution, shadowMapResolution)
+/* Convert "core" vars to compatiblity profile, always use compatibility profile!(at least for final code :3)
+Short docs for this:
+You can assume each of the defines below are "ghost" vertex attributes where you dont need to define the input vertex attribute and that it is magically patched in.
+Note that these dont follow Iris core profile 1:1, but a custom one by Featherweight
+*/
+#define vaPosition gl_Vertex // vec4
+#define modelViewMatrix gl_ModelViewMatrix // mat4
+#define projectionMatrix gl_ProjectionMatrix // mat4
+#define normalMatrix gl_NormalMatrix // mat3
+#define vaColor gl_Color // vec4
+#define vaNormal gl_Normal // vec3
+#define vaUV gl_MultiTexCoord0.xy // vec2 fix rhis
+// no vaUV1 for now cuz its behavior is bad in both core and compat(its a fake uniform)
+
+#define vaLightLevel mul(gl_MultiTexCoord1, gl_TextureMatrix[1]).xy; // vec2
 
 #include "/includes/shared/math_const.glsl"
+#include "/includes/shared/internal/samplers.glsl"
+#include "/includes/settings/debug.glsl"
 
+// Implementation of pass index as iris doesnt let you actually disable programs
+#define DEFERRED_INDEX 55
+
+#define disable(i) (_DebugPassIndex < i ? vec4(0) : gl_Vertex)
+
+#ifdef PROGRAM_GEOMETRY_BASIC
+	#define vaPosition disable(36)
+#endif
+#ifdef PROGRAM_GEOMETRY_LINE
+	#define vaPosition disable(37)
+#endif
+#ifdef PROGRAM_GEOMETRY_TEXTURED
+	#define vaPosition disable(38)
+#endif
+#ifdef PROGRAM_GEOMETRY_TEXTURED_LIT
+	#define vaPosition disable(39)
+#endif
+#ifdef PROGRAM_GEOMETRY_PARTICLES
+	#define vaPosition disable(40)
+#endif
+#ifdef PROGRAM_GEOMETRY_SKY_BASIC
+	#define vaPosition disable(41)
+#endif
+#ifdef PROGRAM_GEOMETRY_SKY_TEXTURED
+	#define vaPosition disable(42)
+#endif
+#ifdef PROGRAM_GEOMETRY_TERRAIN
+	#define vaPosition disable(44)
+#endif
+#ifdef PROGRAM_GEOMETRY_TERRAIN_SOLID
+	#define vaPosition disable(45)
+#endif
+#ifdef PROGRAM_GEOMETRY_TERRAIN_CUTOUT
+	#define vaPosition disable(46)
+#endif
+#ifdef PROGRAM_GEOMETRY_DAMAGED_BLOCK
+	#define vaPosition disable(47)
+#endif
+#ifdef PROGRAM_GEOMETRY_BLOCK_ENTITY
+	#define vaPosition disable(48)
+#endif
+#ifdef PROGRAM_GEOMETRY_BEACON_BEAM
+	#define vaPosition disable(49)
+#endif
+#ifdef PROGRAM_GEOMETRY_ENTITY
+	#define vaPosition disable(50)
+#endif
+#ifdef PROGRAM_GEOMETRY_LIGHTING
+	#define vaPosition disable(51)
+#endif
+#ifdef PROGRAM_GEOMETRY_GLINT
+	#define vaPosition disable(52)
+#endif
+#ifdef PROGRAM_GEOMETRY_EYE
+	#define vaPosition disable(53)
+#endif
+#ifdef PROGRAM_GEOMETRY_HAND
+	#define vaPosition disable(54)
+#endif
+
+#ifdef PROGRAM_GEOMETRY_CLOUD
+	#define vaPosition disable(DEFERRED_INDEX + 1)
+#endif
+#ifdef PROGRAM_GEOMETRY_TERRAIN_TRANSLUCENT
+	#define vaPosition disable(DEFERRED_INDEX + 2)
+#endif
+#else
+
+////
 #endif

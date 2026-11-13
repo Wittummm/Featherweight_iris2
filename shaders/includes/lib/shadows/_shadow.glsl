@@ -1,74 +1,129 @@
 // WARNING: This should not be included/used directly, instead it should use shadow0.glsl or shadow1.glsl
+// CREDIT: @builderb0y says it should be related to shadow map res, https://discord.com/channels/237199950235041794/1100010778133794827/1114276461856174121
 
-#include "/includes/settings/soft_shadows.glsl"
+#include "/includes/settings/shadows.glsl"
 #include "/includes/func/goldenDiskSample.glsl"
 #include "/includes/func/fade.glsl"
 #include "/includes/func/shadows/distortShadow.glsl"
+#include "/includes/lib/space_conversion.glsl"
 
-int getCascade(vec3 shadowView) {
-    return 0; // In Iris we dont have cascades, this we only have 1 cascade
+vec4 cameraToShadowClip(vec3 posCamera) {
+	vec3 shadowView = mul(vec4(posCamera, 1), shadowModelView).xyz;
+	return mul(vec4(shadowView, 1.0), shadowProjection);
 }
 
-////////////////////////////////
-float sampleShadowPCF(vec3 coord, float sampleCount, float offset, int cascade) {
-    //TODOEVENTUALLY: if sample count is low do hardcded pattern
-    float totalShadowed = 0;
+vec3 cameraToShadowClipDir(vec3 dir) {
+	vec3 normalsShadowView = mul(viewToWorldDir(dir), mat3(shadowModelView));
+	return mul(normalsShadowView, mat3(shadowProjection));
+}
 
-    for (int i = 0; i < sampleCount; ++i) {
-        vec2 sampleOffset = goldenDiskSample(i, sampleCount) * offset;
+vec3 shadowClipToShadowScreen(vec4 posShadowClip) {
+	vec3 shadowNdc = posShadowClip.xyz / posShadowClip.w;
+	return shadowNdc*0.5 + 0.5;
+}
+////
+uint getSampleCount(float radius2, float quality, float maxSamples) { // max samples at 1/16 radius
+	if (ShadowFilter != PCF) return 1;
+	return uint(max(PI * radius2 * quality * maxSamples, 1));
+}
+uint getSampleCount(float radius2) {
+	return getSampleCount(radius2, ShadowSamplesQuality, shadowSamples);
+}
+float shadowRadius = ShadowSoftness/(shadowDistance*2); // Meters/ShadowRange = Radius in Texels(how many pixel radius it is)
+float shadowRadius2 = shadowRadius*shadowRadius;
+uint shadowSampleCount = getSampleCount(shadowRadius2);
+////
+float sampleLight(vec3 coord, int cascade) {
+	return ShadowFilter == Nearest ?
+		step(coord.z, sampleShadowTex(coord.xy, cascade)) :
+		sampleShadowTexFiltered(coord, cascade);
+}
+float sampleOpaqueLight(vec3 coord, int cascade) {
+	return ShadowFilter == Nearest ?
+		step(coord.z, sampleOpaqueShadowTex(coord.xy, cascade)) :
+		sampleOpaqueShadowTexFiltered(coord, cascade);
+}
 
-        totalShadowed += sampleShadowMapFiltered(coord + vec3(sampleOffset.xy,0), cascade);
+vec3 calcVisibility(vec3 coord, int cascade) {
+	if (SHADOW_COLOR == Off) {
+		return vec3(sampleOpaqueLight(coord, cascade));
+	} else {
+		float visibility = sampleLight(coord, cascade); // Assumes translucents as opaque
+		if (visibility >= 1) return vec3(1.0);
+		
+		float opaqueVisibility = sampleOpaqueLight(coord, cascade);
+		
+		if (opaqueVisibility > visibility) { // If its translucent, lit(1) > notLit(0), NOTE_PERF: This branch is questionable if it improves or degrades performance
+			vec3 transmitted = ShadowFilter == Nearest ? loadShadowColorTex(ivec2(coord.xy*shadowMapSize), cascade).rgb : sampleShadowColorTex(coord.xy, cascade).rgb;
+			
+			// Below is lowkey magic but it works, visualize the values and youll see. I also dont understand why it works but it does 2026/11/12
+			vec3 transmittedShadow = transmitted*opaqueVisibility;
+
+			return mix(transmittedShadow, vec3(1), visibility);
+		}
+		
+		return vec3(visibility);
+	}
+	return vec3(0.0);
+}
+vec3 calcVisibility(vec4 posShadowClip, int cascade) {
+	 return calcVisibility(shadowClipToShadowScreen(posShadowClip), cascade);
+}
+
+// Bias & Distort, returns clip pos
+vec4 transformShadowPos(vec4 shadowClipPos, vec3 normalsShadowClip, float NdotL) {
+	float distortFac = getDistortShadowBias(shadowClipPos.xyz);
+
+	float biasMult = max(distortFac, shadowBiasDistortFacMin * mix(1, 0.5, NdotL) )*ShadowDistortBias*9.0;
+	vec3 bias = 20*biasMult*normalsShadowClip;
+	shadowClipPos.xyz += (bias * ShadowBias * zSkew) / shadowMapResolution;
+	shadowClipPos.xyz = distortShadow(shadowClipPos.xyz);
+	
+	return shadowClipPos;
+}
+
+vec3 gatherLightSamples(vec4 posShadowClip, vec3 normalsView, int cascade, uint sampleCount) {
+	vec3 _posShadowScreen = shadowClipToShadowScreen(posShadowClip);
+	if (clamp(_posShadowScreen, 0, 1) != _posShadowScreen) return vec3(1);
+	
+	vec3 total = vec3(0);
+	float NdotL = max(dot(normalsView, lightDirection), 0);
+	vec3 normalsShadowClip = cameraToShadowClipDir(normalsView);
+	
+	for (int i = 0; i < sampleCount; ++i) {
+		if (ShadowFilter == PCF) {
+			vec2 offset = goldenDiskSample(i, sampleCount);
+			posShadowClip.xy += offset * shadowRadius * posShadowClip.w;
+		}
+		
+		vec3 posShadowScreen = shadowClipToShadowScreen(transformShadowPos(posShadowClip, normalsShadowClip, NdotL)); 
+		
+		vec3 visibility = calcVisibility(posShadowScreen, cascade); 
+		total += visibility;
     }
-    return 1 - (totalShadowed/sampleCount);
+   
+   total /= float(sampleCount);
+   total = 1-((1-total)*step(ShadowThreshold, 1-total)); // Threshold shadow to reduce sillouete, not sure if this is optimal formula. Also unsure if its even a good shader feature or its too minor and should be culled
+    
+    return total;
 }
 
-const float baseSoftness = 0.002;
-float sampleShadowPCF(vec3 shadowScreenPos, int cascade) {
-    return sampleShadowPCF(shadowScreenPos, ShadowSamples, baseSoftness*ShadowSoftness, cascade); 
+vec3 gatherLightSamples(vec3 posCamera, vec3 normalsView, int cascade, uint sampleCount) {
+	return gatherLightSamples(cameraToShadowClip(posCamera), normalsView, cascade, sampleCount);
+}
+vec3 gatherLightSamples(vec3 posCamera, vec3 normalsView, int cascade) {
+	return gatherLightSamples(posCamera, normalsView, cascade, shadowSampleCount); 
 }
 
-// NOTE: We dont just make the algorithm specific functions this base name; as to potentially allow other code to use algorithm-specific function and not only the user-set one
-float sampleShadow(vec3 shadowScreenPos, int cascade) {
-    if (ShadowFilter == Nearest) {
-        return step(sampleShadowMap(shadowScreenPos.xy, cascade), shadowScreenPos.z);
-    } else if (ShadowFilter == Linear) {
-        return 1.0 - sampleShadowMapFiltered(shadowScreenPos, cascade); 
-    } else if (ShadowFilter == PCF) {
-        return sampleShadowPCF(shadowScreenPos, cascade);
-    }
+int getCascade(vec3 posCamera) {
+    return 0; // In Iris we dont have cascades, thus we only have 1 cascade
 }
-
-float calcShadow(vec3 posPlayer, vec3 normalsView) {
-    if (!ShadowsEnabled) return 0.0;
-
-    float shadowStrength = 1;
-    fadeShadows(posPlayer, shadowStrength);
-
-    if (shadowStrength > 0) {
-        vec3 shadowView = mul(vec4(posPlayer, 1), shadowModelView).xyz;
-        int cascade = getCascade(shadowView);
-        if (cascade == -1) return 0;
-
-        vec4 shadowClip = mul(vec4(shadowView, 1.0), shadowProjection);
-        float distortFac;
-        shadowClip.xyz = distortShadow(shadowClip.xyz, distortFac);
-
-        /// Z Biasing
-        float zBias = ShadowBias;
-        zBias *= distortFac*(cascade+1.0); // CREDIT: @builderb0y https://discord.com/channels/237199950235041794/1100010778133794827/1114276461856174121
-       
-        float d = abs(dot(normalsView, lightDirection));
-        zBias *= pow(15, d); // NOTE: Biasing along normals, instead of depending on normals is probably better as it require less sharp pushing, but we dont have access to geometry normals so this isnst possible currently
-
-        shadowClip.z -= zBias;
-        ////////////////
-        vec3 shadowNdc = shadowClip.xyz / shadowClip.w;
-        vec3 shadowScreen = shadowNdc * 0.5 + 0.5;
-
-        float shadow = sampleShadow(shadowScreen, cascade);
-        shadow *= step(ShadowThreshold, shadow);
-
-        return shadow * shadowStrength;
-    }
-    return 0;
+vec3 gatherLightSamples(vec3 posCamera, vec3 normalsView, uint sampleCount) {
+	int cascade = getCascade(posCamera);
+	if (cascade < 0) return vec3(0.0);
+	
+	return gatherLightSamples(cameraToShadowClip(posCamera), normalsView, cascade, sampleCount);
+}
+vec3 gatherLightSamples(vec3 posCamera, vec3 normalsView) {
+	return gatherLightSamples(posCamera, normalsView, shadowSampleCount); 
 }

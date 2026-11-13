@@ -1,37 +1,35 @@
 #include "/includes/shared/version.glsl"
 #include "/includes/settings/pbr.glsl"
 
-in mediump vec2 vaUV0;
-in ivec2 vaUV2;
-in mediump vec3 vaNormal;
-in vec3 vaPosition;
-in mediump vec4 vaColor;
-in mediump vec4 at_tangent;
+in vec4 at_tangent;
 
-out mediump vec2 lightLevel;
-out lowp vec3 vertColor;
+out vec2 lightLevel;
 out vec3 vertPosition;
-flat out mediump vec3 vertNormal;
+#ifdef PROGRAM_GEOMETRY_BASIC
+flat out vec3 vertColor;
+#else
+out vec3 vertColor;
+#endif
+flat out vec3 vertNormal;
 #ifdef PBR_ENABLED
-	flat out mediump vec4 tangent;
+	flat out vec4 tangent;
 #endif
 
-out mediump vec2 texCoord;
+out vec2 texCoord;
 
 void main() {
-  #include "/includes/shared/core_to_compat.vsh"
-
-	vec3 posView = mul(vec4(vaPosition + chunkOffset, 1), modelViewMatrix).xyz;
+	vec3 posView = mul(vaPosition, modelViewMatrix).xyz;
 	vec4 posClip = mul(vec4(posView, 1), projectionMatrix);
 	//////////
-	lightLevel = mul(vec4(vaUV2, 0.0, 1.0), textureMatrix2).xy;
+	lightLevel = vaLightLevel;
+	lightLevel.y *= vaColor.a; // Apply AO to indirect lighting(the sky light)
 
-	texCoord = vaUV0;
+	texCoord = vaUV;
 	vertPosition = posView.xyz;
 	gl_Position = posClip;
 	vertNormal = vaNormal;
 	#ifdef PBR_ENABLED
 		tangent = at_tangent;
 	#endif
-	vertColor = vaColor.rgb * vaColor.a;
+	vertColor = vaColor.rgb;
 }

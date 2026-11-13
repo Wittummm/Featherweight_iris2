@@ -33,6 +33,7 @@ uniform ivec2 eyeBrightness;
 uniform ivec2 eyeBrightnessSmooth;
 uniform float playerMood;
 uniform float constantMood;
+uniform float currentPlayerArmor;
 
 // World, Weather, Environment
 uniform int moonPhase;
@@ -71,6 +72,7 @@ uniform sampler2D noisetex;
 uniform sampler2D specular;
 uniform sampler2D gtexture;
 uniform sampler2D lightmap;
+uniform ivec2 atlasSize;
 
 // Shadow Textures (must need shadow pass to exist, work)
 uniform sampler2D shadowtex0;

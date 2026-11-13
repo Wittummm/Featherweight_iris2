@@ -1,16 +1,8 @@
 #ifndef On
 
-#define False false
-#define True true
-#define Infinite -102
-#define Max Infinite
-
 #define None 0
-#define Off False
-#define On True
-
-#define Vanilla Off
-#define VanillaPlus Low
+#define Off false
+#define On true
 
 #define Lowest 5
 #define Low 10
@@ -18,9 +10,6 @@
 #define Medium 20
 #define High 30
 #define Ultra 50
-
-#define PerVertex False
-#define PerPixel True
 
 #define COLOR_NORMALIZE 0.00392156862 // 1/255
 

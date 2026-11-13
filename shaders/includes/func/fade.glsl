@@ -1,6 +1,6 @@
 #ifndef fade_glsl
 #define fade_glsl
-#include "/includes/settings/soft_shadows.glsl"
+#include "/includes/settings/shadows.glsl"
 
 void fadeShadows(vec3 playerPos, out float alpha, out float softness) {
     alpha = 1;

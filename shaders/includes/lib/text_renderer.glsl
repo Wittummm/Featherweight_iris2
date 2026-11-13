@@ -120,6 +120,9 @@ void beginText(ivec2 fragPos, ivec2 textPos) {
     text.charPadding =  ivec2(0); // Paddings by SpacEagle17
     text.bgPadding   = ivec2(3);
 }
+void beginText(vec2 fragPos, vec2 textPos) {
+	beginText(ivec2(fragPos), ivec2(textPos));
+}
 
 // Applies the rendered text to the fragment
 void endText(inout vec3 fragColor) {
@@ -134,6 +137,7 @@ void printChar(uint character) {
     ivec2 pos = text.fragPos - text.textPos - effectiveSpaceSize * text.charPos * ivec2(1, -1) + ivec2(0, effectiveSpaceSize.y);
 
     // Draw background (larger area with padding)
+    /*
     ivec2 bgPos = pos + text.bgPadding;
     if (clamp(bgPos, ivec2(0), effectiveSpaceSize + text.bgPadding * 2 - 1) == bgPos) {
         float bgAlpha = text.result.a;
@@ -141,10 +145,11 @@ void printChar(uint character) {
         if (bgAlpha < 0.01) {
             text.result = mix(text.result, text.bgCol, text.bgCol.a);
         }
-    }
+    }*/
 
     // Draw character
     ivec2 charPos = pos - text.charPadding;
+    
     if (clamp(charPos, ivec2(0), charSize - 1) == charPos) {
         uint index = uint(charWidth - charPos.x + charPos.y * charWidth + 1);
         text.result = mix(text.result, text.fgCol, text.fgCol.a * float(character >> index & 1u));

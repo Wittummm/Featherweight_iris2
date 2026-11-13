@@ -8,12 +8,12 @@
 #define PBRFull PBR == 1
 #define PBRReduced PBR == 2
 
-#if PBR == 1
+#if PBRFull
 #define GBUFFER_FORMAT rg32ui // Must be lowercase, or else will fail on some drivers
 /* 
 const int colortex2Format = RG32UI; 
 */
-#elif PBR == 2
+#else
 #define GBUFFER_FORMAT r32ui // Must be lowercase, or else will fail on some drivers
 /* 
 const int colortex2Format = R32UI; 

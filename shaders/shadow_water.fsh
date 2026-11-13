@@ -1,0 +1,1 @@
+#include "/programs/geometry/shadow_translucent.fsh"

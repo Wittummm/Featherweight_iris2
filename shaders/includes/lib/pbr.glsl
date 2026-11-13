@@ -92,6 +92,8 @@ vec3 readReflectance(float reflectance, vec3 albedo, int medium) {
             default:
                 return albedo*reflectance*0.7501875468867217; // Nerf by 1/1.333(Arbitrary)
             }
+			default:
+				return vec3(0);
         }
     }
 }

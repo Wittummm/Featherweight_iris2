@@ -1,3 +1,12 @@
+Featherweight is written in the (fake) core profile, final code is actually compatiblity. The shader has a patcher that patches core to compat.
+This shader is meant to be lightweight, as in the name. So every texture sample, memory acess, frame buffer format/size is carefully considered.
+
+### Resources
+#### FBOs
+- `scene` R11 G11 B10
+- `light` RG8, local light, sky light(indirect)
+- `gbuffers` R32UI / RG32UI, semi/ full PBR
+- `shadowColor` RGB565, stores transmitted rgb(premultiplied)
 
 ### Shader programs
 Names listed here are final program names
@@ -13,7 +22,7 @@ settings
  - **Casing**
     - (Future Runtime) Settings values = PascalCase
     - Out buffers = PascalCase
-    - Defines(except direct setting values) = UPPER_SNAKE_CASE
+    - Defines(Actual defines, even after patches) = UPPER_SNAKE_CASE
  - Light level = [0, 1]
  - Light Brightness = [0, ∞) adjusted for brightness
  - "Light" with no context refers to directional light ie sun/moon light
@@ -35,6 +44,7 @@ settings
 - `TODONOWBUTLATER` should do at the end of the session/feature.
 - `TODOEVENTUALLY` should do eventually
 - `NOTE` a note for readers, including oneself
+- `NOTE_PERF` note relating to performance
 - `PIN` likely will come back to, usually to edit/add features
 - `CODE: xxx` a random code(literally button mash) 
 - `REMOVE` to remove for some reason
@@ -43,5 +53,8 @@ settings
 - `TEMP` temporary
 
 ### File Structure
-    - `func` folder should contain **pipeline agnostic** code, meaning its pure glsl and not tied to any platform or pipeline
+    - `func` folder should contain **pipeline agnostic** code, meaning its pure glsl and not tied to any platform or pipeline. Name should follow function in file 1:1, if multiple functions exist then we can depart and use snake_case like normal.
     - `lib` folder usually contains functions relating to one category/field. Not required to be platform agnostic
+
+### Shader Settings
+As this shader is built to (hopefully, easily) support Aperture in the future. It leans more into Aperture than actual Iris. Settings that can be made into realtime will be `PascalCase` but non-realtime will still be `UPPER_SNAKE_CASE`. Note that a setting may have both casing as one is real time and other is not. For example: `ShadowsEnabled` and `SHADOWS_ENABLED` as it is still realtime, but if you reload it will recompile to optimize.

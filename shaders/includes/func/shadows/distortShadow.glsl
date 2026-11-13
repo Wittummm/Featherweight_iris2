@@ -9,18 +9,13 @@ float oneOverD0 = 1/d0;
 
 vec3 distortShadow(vec3 shadowClipPos){
     if (ShadowDistort <= 0) return shadowClipPos;
-
     return (sign(shadowClipPos)*log2(c*abs(shadowClipPos) + 1.0))*oneOverD0;
 }
 
-vec3 distortShadow(vec3 shadowClipPos, out float distortFactor){
-    if (ShadowDistort <= 0) return shadowClipPos;
-
-    vec3 absShadowClipPos = abs(shadowClipPos);
-    float d = absShadowClipPos.x + absShadowClipPos.y + absShadowClipPos.z;
-    distortFactor = (d0*(c*d + 1.0))*oneOverC;
-    
-    return (sign(shadowClipPos)*log2(c*absShadowClipPos + 1.0))*oneOverD0;
+float getDistortShadowBias(vec3 shadowClipPos){
+    if (ShadowDistort <= 0) { return 0; }
+    float d = abs(shadowClipPos.x) + abs(shadowClipPos.y);
+    return log(2.0)*d0*(c*d + 1.0)*oneOverC;
 }
 
 #endif
